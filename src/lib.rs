@@ -1,8 +1,11 @@
-pub mod sender;
-
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+mod roc_ffi {
+    // Disable linter for generated code
+    #![allow(non_camel_case_types, dead_code, non_upper_case_globals)]
+    #![allow(clippy::all, clippy::pedantic, clippy::nursery)]
+    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
+
+pub mod sender;
 
 #[cfg(test)]
 mod tests {
@@ -10,7 +13,5 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
     }
 }

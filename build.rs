@@ -1,11 +1,13 @@
 use std::env;
+use std::process::Command;
 use std::path::PathBuf;
 use bindgen;
 use std::path::Path;
 use std::fs;
 
+// TODO: ship roc-toolkit in sources to linux, and binaries to macos and windows
 
-// Returns vector of file pathes found under a certin path
+/// Function returns vector of file pathes found under a certain path
 fn find_files(path: &Path) -> Vec<String> {
     let mut files = Vec::new();
 
@@ -30,9 +32,47 @@ fn find_files(path: &Path) -> Vec<String> {
     files
 }
 
+/// Function to call scons
+fn call_scons() -> Result<(), Box<dyn std::error::Error>> {
+    // Determine the current directory
+    let current_dir = "external/roc-toolkit";
+    eprintln!("Running scons in {:?}", current_dir);
+
+    // Invoke `scons`
+    let status = Command::new("scons")
+        .current_dir(&current_dir) // Run scons in the current directory
+        .args(["--disable-tools",
+            "--build-3rdparty=openfec,speexdsp,libuv,libunwind,openssl,sndfile",
+            "--enable-static",
+            "--disable-shared"])
+        .status()?; // Capture the status of the scons command
+
+    if !status.success() {
+        return Err(format!("scons failed with exit code: {:?}", status.code()).into());
+    }
+
+    Ok(())
+}
+
+/// Check if a tool is available in the system PATH
+fn check_tool(tool: &str) {
+    if Command::new(tool).arg("--version").output().is_err() {
+        eprintln!("Error: {} is not installed or not found in PATH.", tool);
+        std::process::exit(1);
+    }
+}
 
 fn main() {
-    let roc_path= Path::new("/home/mkh/Coding/roc-toolkit/");
+    // Build roc-toolkit
+    let build_tools = ["scons", "ragel", "python3"];
+    for bt in build_tools.iter() { check_tool(bt); }
+    // Call the `scons` command
+    if let Err(e) = call_scons() {
+        eprintln!("Error calling scons: {}", e);
+        std::process::exit(1);
+    }
+
+    let roc_path= Path::new("external/roc-toolkit/");
     let roc_ld = roc_path.join("bin/x86_64-pc-linux-gnu");
     let roc_include = roc_path.join("src/public_api/include");
     // Tell cargo to look for shared libraries in the specified directory
@@ -40,7 +80,7 @@ fn main() {
 
     // Tell cargo to tell rustc to link the system bzip2
     // shared library.
-    println!("cargo:rustc-link-lib=dylib=roc");
+    println!("cargo:rustc-link-lib=roc");
 
     let headers = find_files(roc_include.as_path());
 
@@ -49,7 +89,7 @@ fn main() {
         // The input headers we would like to generate
         // bindings for.
         .headers(headers)
-        // Serch path
+        // Search path
         .clang_arg(format!("-I{}", roc_include.to_str().unwrap()))
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
