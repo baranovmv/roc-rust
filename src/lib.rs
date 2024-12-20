@@ -6,6 +6,8 @@ mod roc_ffi {
 }
 
 pub mod sender;
+mod context;
+mod config;
 
 #[cfg(test)]
 mod tests {
